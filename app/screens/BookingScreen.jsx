@@ -1,9 +1,9 @@
+import supabase from '@/lib/supabaseClient';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import supabase from '@/lib/supabaseClient';
-import { Ionicons } from '@expo/vector-icons';
 
 const SHOP_OPEN = 9; // 9 AM
 const SHOP_CLOSE = 18; // 6 PM

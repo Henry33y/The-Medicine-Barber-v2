@@ -1,9 +1,9 @@
+import supabase from '@/lib/supabaseClient';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import supabase from '@/lib/supabaseClient';
-import { Ionicons } from '@expo/vector-icons';
 
 // CheckoutScreen
 // Accepts a `bookingDraft` param (JSON string) OR individual params (serviceId, date, timeSlot, amount, notes).

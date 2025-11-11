@@ -1,9 +1,9 @@
+import supabase from '@/lib/supabaseClient';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import supabase from '@/lib/supabaseClient';
-import { useRouter } from 'expo-router';
 
 export default function ManageServicesScreen() {
   const router = useRouter();

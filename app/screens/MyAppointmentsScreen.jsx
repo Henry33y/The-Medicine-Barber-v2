@@ -1,9 +1,9 @@
+import supabase from '@/lib/supabaseClient';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import supabase from '@/lib/supabaseClient';
 
 export default function MyAppointmentsScreen() {
   const router = useRouter();
