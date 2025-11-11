@@ -1,50 +1,119 @@
-# Welcome to your Expo app 👋
+# Street Urban Barber
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Street Urban Barber is a mobile appointment booking application for a modern urban barbershop. It allows customers to browse services, schedule a haircut session, and make secure online payments — reducing waiting times and improving shop efficiency.
 
-## Get started
+This app is built for **a single barbershop** (no barber selection required). Users simply choose a service, pick an available time slot, and confirm their appointment. Payments are processed through **Paystack**, and authentication is managed using **Supabase**.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 🚀 Features (MVP)
 
-2. Start the app
+| Feature | Description |
+|--------|-------------|
+| User Authentication | Email/Password + Google Sign-In powered by Supabase Auth |
+| View Services | Users can browse available haircut and grooming services with pricing |
+| Book Appointment | Choose a service, date, and available time slot |
+| Online Payments | Paystack integration for secure card & mobile money payments |
+| Appointment History | View upcoming and past appointments with status updates |
+| Admin Access | The barbershop can view daily bookings (admin role) |
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 🛠️ Tech Stack
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+| Layer | Technology |
+|------|------------|
+| Frontend | React Native (Expo) |
+| Backend & Database | Supabase (PostgreSQL + Auth + Storage) |
+| Authentication | Supabase Auth (Email + Google OAuth) |
+| Payments | Paystack Inline Checkout / WebView |
+| Navigation | React Navigation |
+| State Management | React Query / Zustand (optional) |
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
+## 🧱 Database Schema (Supabase)
 
-When you're ready, run:
+### **`profiles`**
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | matches Supabase user ID |
+| full_name | text | user name |
+| phone | text | optional |
+| role | text | 'user' or 'admin' |
 
-```bash
-npm run reset-project
+### **`services`**
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | service id |
+| name | text | service title |
+| price | numeric | cost in GHS |
+| duration | integer | minutes (used for time slot calculations) |
+| image_url | text | optional |
+
+### **`appointments`**
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | appointment id |
+| user_id | uuid | references profiles.id |
+| service_id | uuid | references services.id |
+| date | date | selected date |
+| time_slot | text | "10:00 AM", etc. |
+| status | enum | pending, confirmed, cancelled, completed |
+| payment_status | enum | paid, unpaid |
+
+### **`payments`** (optional)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | payment id |
+| booking_id | uuid | references appointments.id |
+| amount | numeric | total amount |
+| provider_ref | text | Paystack transaction ref |
+
+---
+
+## 🔌 Environment Setup
+
+Create a `.env` file in the project root:
+
+SUPABASE_URL=your-supabase-project-url
+SUPABASE_ANON_KEY=public-anon-key
+
+PAYSTACK_PUBLIC_KEY=pk_live_or_test_key
+PAYSTACK_SECRET_KEY=sk_live_or_test_key (only used in backend)
+
+
+> **Important:** Never put `PAYSTACK_SECRET_KEY` in the app itself — use a Supabase Edge Function or your backend to verify payments.
+
+---
+
+## ▶️ Run the Project
+
+```sh
+npm install
+npx expo start
 ```
+📌 Roadmap (Future Enhancements)
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Push notifications for reminders
 
-## Learn more
+Loyalty / reward points
 
-To learn more about developing your project with Expo, look at the following resources:
+Ratings & reviews
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Haircut photo gallery
 
-## Join the community
+Walk-in queue system
 
-Join our community of developers creating universal apps.
+Admin dashboard web panel
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+🤝 Contributing
+
+Pull requests are welcome. Open an issue for major changes.
+
+📄 License
+
+MIT License
+
+
+---
