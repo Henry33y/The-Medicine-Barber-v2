@@ -1,8 +1,9 @@
 import supabase from '@/lib/supabaseClient';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const SHOP_OPEN = 9; // 9 AM
@@ -12,6 +13,7 @@ export default function BookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const serviceId = Array.isArray(params.serviceId) ? params.serviceId[0] : params.serviceId;
+  console.log('[BookingScreen] params:', params, 'serviceId:', serviceId);
 
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,6 +26,17 @@ export default function BookingScreen() {
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('shop'); // 'shop' or 'now'
   const [submitting, setSubmitting] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const todayObj = useMemo(() => new Date(), []);
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  function formatDateYYYYMMDD(d) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
   useEffect(() => {
     let active = true;
@@ -32,6 +45,7 @@ export default function BookingScreen() {
         const { data: sess } = await supabase.auth.getSession();
         if (active) setUser(sess?.session?.user || null);
         if (!serviceId) {
+          console.warn('[BookingScreen] Missing serviceId param');
           setLoading(false);
           return;
         }
@@ -41,8 +55,10 @@ export default function BookingScreen() {
           .eq('id', serviceId)
           .single();
         if (svcError) throw svcError;
+        console.log('[BookingScreen] Loaded service:', svcData?.id);
         if (active) setService(svcData);
       } catch (e) {
+        console.warn('[BookingScreen] Service load failed:', e?.message || e);
         Alert.alert('Error', e?.message || 'Failed to load service');
       } finally {
         if (active) setLoading(false);
@@ -53,44 +69,44 @@ export default function BookingScreen() {
 
   useEffect(() => {
     if (selectedDate && service) {
-      loadAvailableSlots();
+      loadAvailableSlotsFor(selectedDate);
     } else {
       setAvailableSlots([]);
       setSelectedSlot('');
     }
-  }, [selectedDate, service]);
+  }, [selectedDate, service, loadAvailableSlotsFor]);
 
-  async function loadAvailableSlots() {
+  const loadAvailableSlotsFor = useCallback(async (dateStr) => {
+    if (!dateStr || !service) return [];
     setLoadingSlots(true);
     try {
-      // Fetch appointments for selected date
       const { data: bookings } = await supabase
         .from('appointments')
         .select('time_slot')
-        .eq('date', selectedDate)
+        .eq('date', dateStr)
         .in('status', ['confirmed', 'pending']);
 
-      const bookedSlots = (bookings || []).map(b => b.time_slot);
+      const bookedSlots = (bookings || []).map((b) => b.time_slot);
 
-      // Generate slots from shop hours
-      const duration = service.duration || 30;
       const slots = [];
       for (let h = SHOP_OPEN; h < SHOP_CLOSE; h++) {
-        ['00', '30'].forEach(m => {
+        ['00', '30'].forEach((m) => {
           const time = `${h.toString().padStart(2, '0')}:${m}`;
-          // Simple heuristic: if booking starts here, block it
           if (!bookedSlots.includes(time)) {
             slots.push(time);
           }
         });
       }
       setAvailableSlots(slots);
+      if (!slots.includes(selectedSlot)) setSelectedSlot('');
+      return slots;
     } catch (e) {
       Alert.alert('Error loading slots', e?.message || 'Try again');
+      return [];
     } finally {
       setLoadingSlots(false);
     }
-  }
+  }, [selectedSlot, service]);
 
   async function handleBooking() {
     if (!user) {
@@ -159,7 +175,7 @@ export default function BookingScreen() {
     );
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayStr;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -183,15 +199,38 @@ export default function BookingScreen() {
         {/* Date Picker */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Select Date</Text>
-          <TextInput
-            style={styles.dateInput}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor="#888"
-            value={selectedDate}
-            onChangeText={setSelectedDate}
-            keyboardType="default"
-          />
-          <Text style={styles.hint}>Earliest: {today}</Text>
+          <Pressable style={styles.dateInput} onPress={() => setShowDatePicker(true)}>
+            <Text style={{ color: selectedDate ? '#fff' : '#888' }}>
+              {selectedDate || 'Tap to choose a date'}
+            </Text>
+          </Pressable>
+          <Text style={styles.hint}>Earliest: {todayStr}</Text>
+          {showDatePicker && (
+            <DateTimePicker
+              mode="date"
+              value={selectedDate ? new Date(selectedDate) : todayObj}
+              minimumDate={todayObj}
+              onChange={async (event, date) => {
+                // Android closes picker immediately; iOS inline remains open
+                if (Platform.OS === 'android') setShowDatePicker(false);
+                if (event?.type === 'dismissed' || !date) return;
+                const picked = new Date(date);
+                const min = new Date(todayObj.getFullYear(), todayObj.getMonth(), todayObj.getDate());
+                if (picked < min) {
+                  Alert.alert('Invalid date', 'Please choose today or a future date.');
+                  return;
+                }
+                const dateStr = formatDateYYYYMMDD(picked);
+                const slots = await loadAvailableSlotsFor(dateStr);
+                if (!slots || slots.length === 0) {
+                  Alert.alert('No availability', 'No time slots are available on this date. Please choose another date.');
+                  return;
+                }
+                setSelectedDate(dateStr);
+              }}
+              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            />
+          )}
         </View>
 
         {/* Time Slots */}

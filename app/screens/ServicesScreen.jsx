@@ -67,7 +67,7 @@ export default function ServicesScreen() {
           style={styles.bookBtn}
           onPress={() => {
             console.log('[ServicesScreen] Booking service:', item.id);
-            router.push({ pathname: '/booking', params: { serviceId: item.id } });
+            router.push({ pathname: '/book', params: { serviceId: item.id } });
           }}
         >
           <Text style={styles.bookBtnText}>Book Now</Text>

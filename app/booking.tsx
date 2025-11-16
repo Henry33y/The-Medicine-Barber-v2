@@ -1,6 +1,10 @@
-import React from 'react';
-import BookingScreen from './screens/BookingScreen';
+import { router } from 'expo-router';
+import { useEffect } from 'react';
 
-export default function BookingRoute() {
-  return <BookingScreen />;
+// Redirect legacy /booking to /book to avoid tabs route collisions
+export default function LegacyBookingRoute() {
+  useEffect(() => {
+    router.replace('/book');
+  }, []);
+  return null;
 }

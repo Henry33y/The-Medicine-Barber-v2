@@ -6,13 +6,13 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    ImageBackground,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+	ActivityIndicator,
+	ImageBackground,
+	Pressable,
+	StyleSheet,
+	Text,
+	TextInput,
+	View,
 } from 'react-native';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

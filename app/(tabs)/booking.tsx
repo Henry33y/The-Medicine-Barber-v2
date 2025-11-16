@@ -1,7 +1,9 @@
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 
-// Legacy route shim: if this path is ever reached, redirect to the new top-level /booking
+// Hide this route from tabs and deep links; keep as a silent redirect if reached
+export const unstable_settings = { href: null };
+
 export default function LegacyBookingTab() {
   useEffect(() => {
     router.replace('/booking');

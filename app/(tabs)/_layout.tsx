@@ -55,6 +55,8 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* Hide any legacy booking tab route if present */}
+      <Tabs.Screen name="booking" options={{ href: null }} />
       <Tabs.Screen
         name="admin"
         options={{

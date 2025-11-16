@@ -1,6 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as WebBrowser from 'expo-web-browser';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -11,6 +12,9 @@ import { Alert, Linking } from 'react-native';
 export const unstable_settings = {
   anchor: '(tabs)',
 };
+
+// Ensure AuthSession completes on returning to the app (Expo AuthSession best practice)
+WebBrowser.maybeCompleteAuthSession();
 
 function AuthGate() {
   const router = useRouter() as any;
