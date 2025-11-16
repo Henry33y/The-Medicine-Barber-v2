@@ -60,9 +60,18 @@ export default function AuthScreen() {
 		setLoading(true);
 			try {
 				// For email confirmations, ensure the verification link returns to our app, not Site URL
-				const isExpoGo = Constants?.appOwnership === 'expo';
-				const scheme = Constants?.expoConfig?.scheme || 'medicinebarber';
-				const emailRedirectTo = makeRedirectUri({ path: 'auth', useProxy: isExpoGo, scheme: isExpoGo ? undefined : scheme });
+								const isExpoGo = Constants?.appOwnership === 'expo';
+								const scheme = Constants?.expoConfig?.scheme || 'medicinebarber';
+								const emailRedirectTo = isExpoGo
+									? makeRedirectUri({ path: 'auth', useProxy: true })
+									: makeRedirectUri({ path: 'auth', useProxy: false, scheme, preferLocalhost: false });
+								if (isExpoGo) {
+									if (!String(emailRedirectTo).startsWith('https://auth.expo.io/')) {
+										console.warn('[AuthScreen] Warning: Email redirect is not using Expo proxy:', emailRedirectTo);
+									} else {
+										console.log('[AuthScreen] Add this URL in Supabase → Auth → Redirect URLs:', emailRedirectTo);
+									}
+								}
 				const { data, error } = await supabase.auth.signUp({
 					email,
 					password,
@@ -86,12 +95,71 @@ export default function AuthScreen() {
 				console.log('[AuthScreen] Google sign-in result:', { data, error });
 				if (error) throw error;
 				// On Expo, supabase-js may not open the browser automatically; open it explicitly.
-						if (data?.url) {
-							const isExpoGo = Constants?.appOwnership === 'expo';
-							const scheme = Constants?.expoConfig?.scheme || 'medicinebarber';
-							const returnUrl = makeRedirectUri({ path: 'auth', useProxy: isExpoGo, scheme: isExpoGo ? undefined : scheme });
+												if (data?.url) {
+														const isExpoGo = Constants?.appOwnership === 'expo';
+														const scheme = Constants?.expoConfig?.scheme || 'medicinebarber';
+														const returnUrl = isExpoGo
+															? makeRedirectUri({ path: 'auth', useProxy: true })
+															: makeRedirectUri({ path: 'auth', useProxy: false, scheme, preferLocalhost: false });
+														if (isExpoGo) {
+															console.log('[AuthScreen] OAuth returnUrl (Expo proxy):', returnUrl);
+															console.log('[AuthScreen] Add this to Supabase → Auth → Redirect URLs');
+														}
 							console.log('[AuthScreen] Opening OAuth browser. authUrl:', data.url, 'returnUrl:', returnUrl);
-							await WebBrowser.openAuthSessionAsync(data.url, returnUrl);
+														const result = await WebBrowser.openAuthSessionAsync(data.url, returnUrl);
+														console.log('[AuthScreen] AuthSession result:', JSON.stringify(result));
+														if (result.type === 'success' && result.url) {
+															const extract = (u, key) => {
+																const qIndex = u.indexOf('?');
+																const hIndex = u.indexOf('#');
+																const pick = (seg) => {
+																	if (!seg) return null;
+																	const params = seg.split('&');
+																	for (const p of params) {
+																		const [k, v] = p.split('=');
+																		if (k === key) return decodeURIComponent(v || '');
+																	}
+																	return null;
+																};
+																return pick(qIndex !== -1 ? u.slice(qIndex + 1, hIndex !== -1 ? hIndex : undefined) : undefined)
+																	|| pick(hIndex !== -1 ? u.slice(hIndex + 1) : undefined);
+															};
+															  console.log('[AuthScreen] Returned URL:', result.url);
+															  const errorDescription = extract(result.url, 'error_description');
+															if (errorDescription) {
+																console.warn('[AuthScreen] OAuth error:', errorDescription);
+																throw new Error(decodeURIComponent(errorDescription));
+															}
+															const code = extract(result.url, 'code');
+															if (!code) {
+																console.warn('[AuthScreen] No code param found in return URL');
+															}
+															if (code) {
+																console.log('[AuthScreen] Exchanging code for session');
+																// Try both signatures for compatibility
+																try {
+																	const { data: ex1, error: exErr1 } = await (supabase).auth.exchangeCodeForSession({ authCode: code });
+																	if (exErr1) throw exErr1;
+																	if (ex1?.session?.user) {
+																		router.replace('/');
+																		return;
+																	}
+																} catch (e) {
+																	console.warn('[AuthScreen] exchange (authCode) failed:', e?.message || e);
+																}
+																try {
+																	const { data: ex2, error: exErr2 } = await (supabase).auth.exchangeCodeForSession({ code });
+																	if (exErr2) throw exErr2;
+																	if (ex2?.session?.user) {
+																		router.replace('/');
+																		return;
+																	}
+																} catch (e) {
+																	console.warn('[AuthScreen] exchange (code) failed:', e?.message || e);
+																	throw e;
+																}
+															}
+														}
 						}
 			// On native, user completes flow in browser; session listener should handle redirect.
 		} catch (e) {
