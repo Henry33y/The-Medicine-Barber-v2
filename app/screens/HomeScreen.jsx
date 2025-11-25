@@ -1,8 +1,21 @@
 import supabase from '@/lib/supabaseClient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import LiveMap from '@/components/LiveMap';
+
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -40,7 +53,6 @@ export default function HomeScreen() {
             setServicesCount(svcData?.length || 0);
             setNextAppt(bookingData?.[0] || null);
           }
-          // If profile row is missing, attempt a friendly upsert using available metadata
           if (active && !profData && !upsertingProfile) {
             setUpsertingProfile(true);
             const md = user.user_metadata || {};
@@ -52,11 +64,10 @@ export default function HomeScreen() {
               .replace(/\b\w/g, c => c.toUpperCase());
             try {
               await supabase.from('profiles').upsert({ id: user.id, full_name: guessName, email: user.email }, { onConflict: 'id' });
-              // Re-fetch profile after upsert
               const { data: newProf } = await supabase.from('profiles').select('*').eq('id', user.id).single();
               if (active) setProfile(newProf || null);
             } catch (_e) {
-              // Non-fatal; user can edit profile manually
+              // ignore
             } finally {
               if (active) setUpsertingProfile(false);
             }
@@ -74,7 +85,7 @@ export default function HomeScreen() {
     };
   }, [upsertingProfile]);
 
-  // Derive a friendly display name from profile, user metadata (Google), or email prefix.
+  // Derive display name
   const [sessionUser, setSessionUser] = useState(null);
   useEffect(() => {
     supabase.auth.getSession().then(res => setSessionUser(res.data.session?.user || null));
@@ -86,171 +97,241 @@ export default function HomeScreen() {
     (sessionUser?.email ? sessionUser.email.split('@')[0] : null) ||
     'Guest'
   );
+
   const shopHours = 'Mon - Sat: 9:00 AM - 6:00 PM';
-  const shopAddress = '123 Barber Lane, Accra, Ghana';
-  const phoneNumber = '+233550325368';
+  const shopAddress = 'Underwood ST, Kwashieman, Ghana';
+  const phoneNumber = '+233201791199';
+
+  // Local path of uploaded sketch (developer: transform this path as needed)
+  const sketchLocalPath = 'file:///mnt/data/a50545fd-f91d-4b63-896b-e324bf9ed945.jpg';
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroCard}>
-          <Image source={require('@/assets/images/partial-react-logo.png')} style={styles.heroBg} />
-          <View style={styles.heroOverlay} />
-          <Text style={styles.greeting}>Hey {displayName}</Text>
-          <Text style={styles.tagline}>Ready for a fresh cut?</Text>
-          <Pressable style={styles.cta} onPress={() => { console.log('[Home] CTA pressed -> /services'); router.push('/services'); }}>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.greeting}>Hey {displayName}</Text>
+            <Text style={styles.tagline}>Ready for a fresh cut?</Text>
+          </View>
+          <Pressable style={styles.profileBtn} onPress={() => router.push('/profile')}>
+            <Ionicons name="person-circle" size={40} color="#FFD700" />
+          </Pressable>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Big CTA */}
+          <Pressable
+            style={styles.cta}
+            onPress={() => {
+              console.log('[Home] CTA pressed -> /services');
+              router.push('/services');
+            }}
+          >
             <Text style={styles.ctaText}>Book Appointment</Text>
           </Pressable>
-        </View>
 
-        <View style={styles.infoGrid}>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Hours</Text>
-            <Text style={styles.infoValue}>{shopHours}</Text>
+          {/* Info Tabs Row */}
+          <View style={styles.infoTabs}>
+            <Pressable style={styles.infoTab} onPress={() => Alert.alert('Hours', shopHours)}>
+              <Text style={styles.infoLabel}>Hours</Text>
+              <Text style={styles.infoValSmall}>{shopHours}</Text>
+            </Pressable>
+            <Pressable style={styles.infoTab} onPress={() => { Linking.openURL('https://maps.google.com/?q=' + encodeURIComponent(shopAddress)); }}>
+              <Text style={styles.infoLabel}>Address</Text>
+              <Text style={styles.infoValSmall}>{shopAddress}</Text>
+            </Pressable>
+            <Pressable style={styles.infoTab} onPress={() => router.push('/services')}>
+              <Text style={styles.infoLabel}>Services</Text>
+              <Text style={styles.infoValSmall}>{servicesCount ?? '—'}</Text>
+            </Pressable>
           </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Address</Text>
-            <Text style={styles.infoValue}>{shopAddress}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Services</Text>
-            <Text style={styles.infoValue}>{servicesCount ?? '—'}</Text>
-          </View>
-        </View>
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Next Appointment</Text>
-          {loading ? (
-            <ActivityIndicator color="#FFD700" />
-          ) : nextAppt ? (
-            <>
-              <Text style={styles.apptText}>
-                {nextAppt.date} · {nextAppt.time_slot}{'\n'}{nextAppt.service?.name || 'Service'}
-              </Text>
-              <Pressable
-                style={styles.secondaryBtn}
-                onPress={async () => {
-                  try {
-                    const { data: sess } = await supabase.auth.getSession();
-                    const uid = sess?.session?.user?.id;
-                    if (!uid) return;
-                    const { error: cancelErr } = await supabase
-                      .from('appointments')
-                      .update({ status: 'cancelled' })
-                      .eq('id', nextAppt.id)
-                      .eq('user_id', uid);
-                    if (cancelErr) throw cancelErr;
-                    setNextAppt(null);
-                    Alert.alert('Appointment cancelled');
-                  } catch (e) {
-                    Alert.alert('Failed to cancel', e.message || 'Try again later');
-                  }
-                }}
-              >
-                <Text style={styles.secondaryBtnText}>Cancel Appointment</Text>
-              </Pressable>
-            </>
-          ) : (
-            <Text style={styles.empty}>No upcoming appointments</Text>
-          )}
-        </View>
+          {/* Next Appointment large card */}
+          <View style={styles.nextCard}>
+            <Text style={styles.sectionTitle}>Next Appointment</Text>
+            {loading ? (
+              <ActivityIndicator color="#FFD700" />
+            ) : nextAppt ? (
+              <>
+                <Text style={styles.apptText}>
+                  {nextAppt.date} · {nextAppt.time_slot}
+                  {'\n'}
+                  {nextAppt.service?.name || 'Service'}
+                </Text>
+                <Pressable
+                  style={styles.cancelBtn}
+                  onPress={async () => {
+                    try {
+                      const { data: sess } = await supabase.auth.getSession();
+                      const uid = sess?.session?.user?.id;
+                      if (!uid) return;
+                      const { error: cancelErr } = await supabase
+                        .from('appointments')
+                        .update({ status: 'cancelled' })
+                        .eq('id', nextAppt.id)
+                        .eq('user_id', uid);
+                      if (cancelErr) throw cancelErr;
+                      setNextAppt(null);
+                      Alert.alert('Appointment cancelled');
+                    } catch (e) {
+                      Alert.alert('Failed to cancel', e.message || 'Try again later');
+                    }
+                  }}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel Appointment</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Text style={styles.empty}>No upcoming appointments</Text>
+            )}
+          </View>
 
-        <View style={styles.actionsRow}>
-          <Pressable style={styles.actionCard} onPress={() => { console.log('[Home] Go to /my-appointments'); router.push('/my-appointments'); }}>
-            <Text style={styles.actionTitle}>My Appointments</Text>
-            <Text style={styles.actionSub}>View & manage</Text>
-          </Pressable>
-          <Pressable style={styles.actionCard} onPress={() => Linking.openURL(`tel:${phoneNumber}`)}>
-            <Text style={styles.actionTitle}>Call Shop</Text>
-            <Text style={styles.actionSub}>Tap to dial</Text>
-          </Pressable>
-          <Pressable
-            style={styles.actionCard}
-            onPress={() => Linking.openURL('https://maps.google.com/?q=' + encodeURIComponent(shopAddress))}
-          >
-            <Text style={styles.actionTitle}>Location</Text>
-            <Text style={styles.actionSub}>Open Maps</Text>
-          </Pressable>
-          <Pressable style={styles.actionCard} onPress={() => { console.log('[Home] Go to /profile'); router.push('/profile'); }}>
-            <Text style={styles.actionTitle}>Edit Profile</Text>
-            <Text style={styles.actionSub}>Name & contact</Text>
-          </Pressable>
-        </View>
-        {!!error && <Text style={styles.error}>{error}</Text>}
-      </ScrollView>
+          {/* Two large buttons side-by-side */}
+          <View style={styles.dualRow}>
+            <Pressable style={styles.largeAction} onPress={() => router.push('/my-appointments')}>
+              <Ionicons name="calendar" size={28} color="#FFD700" />
+              <Text style={styles.largeActionTitle}>My Appointments</Text>
+              <Text style={styles.largeActionSub}>View & manage</Text>
+            </Pressable>
+
+            <Pressable style={styles.largeAction} onPress={() => Linking.openURL(`tel:${phoneNumber}`)}>
+              <Ionicons name="call" size={28} color="#FFD700" />
+              <Text style={styles.largeActionTitle}>Call Shop</Text>
+              <Text style={styles.largeActionSub}>Tap to dial</Text>
+            </Pressable>
+          </View>
+
+          {/* Map placeholder (using uploaded sketch image) */}
+          <View style={styles.mapCard}>
+               <Text style={styles.mapTitle}>Map</Text>
+               <LiveMap />
+          </View>
+
+          {!!error && <Text style={styles.error}>{error}</Text>}
+
+          {/* Bottom spacing so content isn't hidden behind nav */}
+          <View style={{ height: 80 }} />
+        </ScrollView>
+
+      </View>
+     
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#000' },
-  scrollContent: { padding: 20, paddingBottom: 40 },
-  heroCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginBottom: 24,
-    backgroundColor: '#111',
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#222',
+  container: { flex: 1 },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingBottom: 6,
   },
-  heroBg: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.08, resizeMode: 'cover' },
-  heroOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)' },
-  greeting: { color: '#FFD700', fontSize: 26, fontWeight: '800' },
-  tagline: { color: '#fff', marginTop: 4, marginBottom: 18, fontSize: 15 },
+  greeting: { color: '#FFD700', fontSize: 22, fontWeight: '800' },
+  tagline: { color: '#fff', fontSize: 13, marginTop: 4 },
+  profileBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 20,
+  },
+
+  /* CTA */
   cta: {
     backgroundColor: '#B22222',
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 16,
+    borderRadius: 16,
     alignItems: 'center',
+    marginBottom: 18,
     shadowColor: '#B22222',
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
+    elevation: 6,
   },
-  ctaText: { color: '#fff', fontWeight: '700', fontSize: 16, letterSpacing: 0.5 },
-  infoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
-  },
-  infoItem: {
-    flexBasis: '30%',
-    flexGrow: 1,
+  ctaText: { color: '#fff', fontWeight: '800', fontSize: 18, letterSpacing: 0.3 },
+
+  /* Info tabs */
+  infoTabs: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 },
+  infoTab: {
+    flex: 1,
     backgroundColor: '#111',
-    padding: 14,
+    marginHorizontal: 4,
+    padding: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#222',
-    minWidth: 110,
+    minHeight: 68,
   },
-  infoLabel: { color: '#888', fontSize: 11, marginBottom: 4, letterSpacing: 0.5 },
-  infoValue: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  sectionCard: {
+  infoLabel: { color: '#FFD700', fontSize: 12, fontWeight: '700', marginBottom: 6 },
+  infoValSmall: { color: '#ddd', fontSize: 11 },
+
+  /* Next appointment */
+  nextCard: {
     backgroundColor: '#111',
     padding: 18,
     borderRadius: 16,
-    marginBottom: 24,
+    marginBottom: 18,
     borderWidth: 1,
     borderColor: '#222',
+    minHeight: 110,
+    justifyContent: 'space-between',
   },
-  sectionTitle: { color: '#FFD700', fontWeight: '700', marginBottom: 10, fontSize: 16 },
-  apptText: { color: '#fff', lineHeight: 20 },
+  sectionTitle: { color: '#FFD700', fontWeight: '700', marginBottom: 8, fontSize: 16 },
+  apptText: { color: '#fff', fontSize: 14, lineHeight: 20, marginBottom: 10 },
   empty: { color: '#555', fontStyle: 'italic' },
-  actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
-  actionCard: {
+  cancelBtn: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#FFD700',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  cancelBtnText: { color: '#FFD700', fontWeight: '700' },
+
+  /* Dual actions */
+  dualRow: { flexDirection: 'row', gap: 12, marginBottom: 18 },
+  largeAction: {
     flex: 1,
     backgroundColor: '#111',
-    padding: 16,
+    padding: 14,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#222',
+    alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 110,
   },
-  actionTitle: { color: '#FFD700', fontSize: 13, fontWeight: '700', marginBottom: 4 },
-  actionSub: { color: '#bbb', fontSize: 11 },
+  largeActionTitle: { color: '#FFD700', fontSize: 14, fontWeight: '800', marginTop: 8 },
+  largeActionSub: { color: '#bbb', fontSize: 11 },
+
+  /* Map */
+  mapCard: {
+    backgroundColor: '#111',
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#222',
+    overflow: 'hidden',
+  },
+  mapTitle: { color: '#FFD700', fontWeight: '700', padding: 12 },
+  mapImage: { width: '100%', height: 180, opacity: 0.95 },
+
+  navItem: { alignItems: 'center', justifyContent: 'center' },
+  navLabel: { color: '#FFD700', fontSize: 11, marginTop: 2 },
+  navLabelInactive: { color: '#888', fontSize: 11, marginTop: 2 },
+
   error: { color: '#ff6b6b', marginTop: 12, textAlign: 'center' },
 });
-
