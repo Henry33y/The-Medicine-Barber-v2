@@ -15,6 +15,9 @@ export default function BookingScreen() {
   const serviceId = Array.isArray(params.serviceId) ? params.serviceId[0] : params.serviceId;
   console.log('[BookingScreen] params:', params, 'serviceId:', serviceId);
 
+  // Toggle to show/hide the "Pay Now" payment option in the booking UI
+  const SHOW_PAY_NOW = true;
+
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
@@ -284,15 +287,18 @@ export default function BookingScreen() {
                 Pay At Shop
               </Text>
             </Pressable>
-            <Pressable
-              style={[styles.paymentBtn, paymentMethod === 'now' && styles.paymentBtnActive]}
-              onPress={() => setPaymentMethod('now')}
-            >
-              <Ionicons name="card-outline" size={20} color={paymentMethod === 'now' ? '#FFD700' : '#888'} />
-              <Text style={[styles.paymentText, paymentMethod === 'now' && styles.paymentTextActive]}>
-                Pay Now
-              </Text>
-            </Pressable>
+            {SHOW_PAY_NOW && (
+              <Pressable
+                style={[styles.paymentBtn, paymentMethod === 'now' && styles.paymentBtnActive]}
+                onPress={() => setPaymentMethod('now')}
+              >
+                <Ionicons name="card-outline" size={20} color={paymentMethod === 'now' ? '#FFD700' : '#888'} />
+                <Text style={[styles.paymentText, paymentMethod === 'now' && styles.paymentTextActive]}>
+                  Pay Now
+                </Text>
+              </Pressable>
+            )}
+            
           </View>
         </View>
 
