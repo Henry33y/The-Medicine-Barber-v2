@@ -6,19 +6,22 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useState } from 'react';
 import {
-	ActivityIndicator,
-	ImageBackground,
-	Pressable,
-	StyleSheet,
-	Text,
-	TextInput,
-	View,
+    ActivityIndicator,
+    ImageBackground,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function AuthScreen() {
 	const router = useRouter();
+
+	// Toggle to show/hide Google sign-in button without removing logic
+	const SHOW_GOOGLE_SIGNIN = false;
 	React.useEffect(() => {
 		// Ensure AuthSession completes on return
 		WebBrowser.maybeCompleteAuthSession();
@@ -243,10 +246,12 @@ export default function AuthScreen() {
 					)}
 				</Pressable>
 
-				<Pressable style={styles.googleBtn} onPress={handleGoogle} disabled={loading}>
-					<AntDesign name="google" size={18} color="#000" style={{ marginRight: 8 }} />
-					<Text style={styles.googleBtnText}>Sign in with Google</Text>
-				</Pressable>
+				{SHOW_GOOGLE_SIGNIN && (
+					<Pressable style={styles.googleBtn} onPress={handleGoogle} disabled={loading}>
+						<AntDesign name="google" size={18} color="#000" style={{ marginRight: 8 }} />
+						<Text style={styles.googleBtnText}>Sign in with Google</Text>
+					</Pressable>
+				)}
 
 				<Pressable style={styles.guestBtn} onPress={handleGuest} disabled={loading}>
 					<Text style={styles.guestBtnText}>Continue as Guest</Text>
