@@ -28,6 +28,9 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
+  // Toggle to show/hide the Pay button (keeps payment logic intact)
+  const SHOW_PAY_BUTTON = true;
+
   // Parse bookingDraft param if present
   const bookingDraft = useMemo(() => {
     try {
@@ -114,6 +117,16 @@ export default function CheckoutScreen() {
       }
     } catch (e) {
       console.error('[CheckoutScreen] init error', e);
+      try {
+        console.error('[CheckoutScreen] init error details', {
+          name: e?.name,
+          message: e?.message,
+          status: e?.status || e?.statusCode || e?.status_text || null,
+          stack: e?.stack,
+        });
+      } catch (_) {
+        // ignore
+      }
       // Try to surface HTTP body from FunctionsHttpError
       try {
         // FunctionsHttpError may include a `response` or `json()` helper
@@ -196,6 +209,16 @@ export default function CheckoutScreen() {
     } catch (e) {
       console.error('[CheckoutScreen] verify error', e);
       try {
+        console.error('[CheckoutScreen] verify error details', {
+          name: e?.name,
+          message: e?.message,
+          status: e?.status || e?.statusCode || e?.status_text || null,
+          stack: e?.stack,
+        });
+      } catch (_) {
+        // ignore
+      }
+      try {
         let body = null;
         if (e && typeof e.json === 'function') {
           body = await e.json();
@@ -250,13 +273,15 @@ export default function CheckoutScreen() {
         {/* Payment Actions */}
         {!completed && (
           <View style={styles.actions}>
-            <Pressable
-              style={[styles.payBtn, !canPay && styles.payBtnDisabled]}
-              disabled={!canPay}
-              onPress={beginPayment}
-            >
-              {initializing ? <ActivityIndicator color="#fff" /> : <Text style={styles.payBtnText}>Pay with Paystack</Text>}
-            </Pressable>
+            {SHOW_PAY_BUTTON && (
+              <Pressable
+                style={[styles.payBtn, !canPay && styles.payBtnDisabled]}
+                disabled={!canPay}
+                onPress={beginPayment}
+              >
+                {initializing ? <ActivityIndicator color="#fff" /> : <Text style={styles.payBtnText}>Pay with Paystack</Text>}
+              </Pressable>
+            )}
             <Pressable
               style={[styles.verifyBtn, (!reference || verifying) && styles.verifyBtnDisabled]}
               disabled={!reference || verifying}

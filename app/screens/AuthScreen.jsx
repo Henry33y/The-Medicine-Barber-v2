@@ -21,7 +21,7 @@ export default function AuthScreen() {
 	const router = useRouter();
 
 	// Toggle to show/hide Google sign-in button without removing logic
-	const SHOW_GOOGLE_SIGNIN = false;
+	const SHOW_GOOGLE_SIGNIN = true;
 	React.useEffect(() => {
 		// Ensure AuthSession completes on return
 		WebBrowser.maybeCompleteAuthSession();
