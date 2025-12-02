@@ -81,6 +81,7 @@ export default function CheckoutScreen() {
     try {
       // 1. Initialize transaction via edge function (to implement separately)
       //    In your Supabase functions directory create init-paystack function.
+      console.log('[CheckoutScreen] calling init-paystack, amountKobo=', koboAmount);
       const { data, error } = await supabase.functions.invoke('init-paystack', {
         body: {
           amountKobo: koboAmount,
@@ -94,11 +95,12 @@ export default function CheckoutScreen() {
           },
         },
       });
+      console.log('[CheckoutScreen] init-paystack response', { data, error });
       if (error) throw error;
       if (!data?.authorization_url || !data?.reference) {
         throw new Error('Invalid init-paystack response');
       }
-  setReference(data.reference);
+      setReference(data.reference);
 
       // 2. Open external browser to Paystack checkout.
       //    For more controlled UX, add react-native-webview and embed it instead.
@@ -112,7 +114,26 @@ export default function CheckoutScreen() {
       }
     } catch (e) {
       console.error('[CheckoutScreen] init error', e);
-      setPaymentError(e?.message || 'Failed to start payment');
+      // Try to surface HTTP body from FunctionsHttpError
+      try {
+        // FunctionsHttpError may include a `response` or `json()` helper
+        let body = null;
+        if (e && typeof e.json === 'function') {
+          body = await e.json();
+        } else if (e && e.response && typeof e.response.text === 'function') {
+          const text = await e.response.text();
+          try { body = JSON.parse(text); } catch (_) { body = text; }
+        }
+        if (body) {
+          console.error('[CheckoutScreen] init-paystack function body:', body);
+          setPaymentError(body?.message || (typeof body === 'string' ? body : JSON.stringify(body)));
+        } else {
+          setPaymentError(e?.message || 'Failed to start payment');
+        }
+      } catch (readErr) {
+        console.error('[CheckoutScreen] error reading function error body', readErr);
+        setPaymentError(e?.message || 'Failed to start payment');
+      }
     } finally {
       setInitializing(false);
     }
@@ -127,9 +148,11 @@ export default function CheckoutScreen() {
     setPaymentError('');
     try {
       // 3. Verify transaction via edge function.
+      console.log('[CheckoutScreen] verifying reference=', reference);
       const { data, error } = await supabase.functions.invoke('verify-paystack', {
         body: { reference },
       });
+      console.log('[CheckoutScreen] verify-paystack response', { data, error });
       if (error) throw error;
       if (data?.status !== 'success') {
         setPaymentError(data?.gateway_response || 'Payment not successful');
@@ -172,8 +195,27 @@ export default function CheckoutScreen() {
       ]);
     } catch (e) {
       console.error('[CheckoutScreen] verify error', e);
-      setPaymentError(e?.message || 'Verification failed');
-      Alert.alert('Verification Error', e?.message || 'Could not verify payment');
+      try {
+        let body = null;
+        if (e && typeof e.json === 'function') {
+          body = await e.json();
+        } else if (e && e.response && typeof e.response.text === 'function') {
+          const text = await e.response.text();
+          try { body = JSON.parse(text); } catch (_) { body = text; }
+        }
+        if (body) {
+          console.error('[CheckoutScreen] verify-paystack function body:', body);
+          setPaymentError(body?.message || (typeof body === 'string' ? body : JSON.stringify(body)));
+          Alert.alert('Verification Error', body?.message || (typeof body === 'string' ? body : JSON.stringify(body)));
+        } else {
+          setPaymentError(e?.message || 'Verification failed');
+          Alert.alert('Verification Error', e?.message || 'Could not verify payment');
+        }
+      } catch (readErr) {
+        console.error('[CheckoutScreen] error reading verify error body', readErr);
+        setPaymentError(e?.message || 'Verification failed');
+        Alert.alert('Verification Error', e?.message || 'Could not verify payment');
+      }
     } finally {
       setVerifying(false);
     }
